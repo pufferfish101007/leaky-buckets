@@ -1,0 +1,26 @@
+-- adds two integers, and prints the output
+
+the bucket depot is in front of me
+the tap is to my left
+the pond is to my right
+
+collect a max pint bucket
+let god fill the bucket as he wishes
+turn around
+move 1 steps
+place the bucket down in front of me
+turn around
+move 1 steps
+
+collect a max pint bucket
+let god fill the bucket as he wishes
+turn around
+move 1 steps
+empty the bucket onto the square in front of me
+
+place the bucket down to my left
+
+pick up the bucket in front of me
+turn around
+move 1 steps
+empty the bucket on to the square to my right

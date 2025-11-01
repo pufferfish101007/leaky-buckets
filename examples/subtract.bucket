@@ -1,0 +1,29 @@
+-- takes two integers and returns the difference between them
+
+the bucket depot is in front of me
+the tap is to my left
+the pond is to my right
+
+collect a max pint bucket
+let god fill the bucket as he wishes -- first integer
+turn around
+move 1 steps
+place the bucket down to my left
+turn around
+move 1 steps
+
+collect a max pint bucket
+let god fill the bucket as he wishes -- second integer
+shrink my bucket
+i wish to scream into the void
+empty the bucket onto the square to my right
+
+turn around
+move 1 steps
+place the bucket down in front of me
+pick up the bucket to my left
+empty the bucket onto the square in front of me without overflow
+
+turn around
+move 1 steps
+empty the bucket onto the square to my right
