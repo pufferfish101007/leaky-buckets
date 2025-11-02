@@ -17,7 +17,7 @@ program := (instruction? comment? "\n")*
 
 comment := "--" followed by anything
 
-instruction := movement | turn | bucketAction | invocation | wellies
+instruction := movement | turn | action | invocation | wellies
 
 movement := "move" ("1 step" | int "steps")
 
@@ -39,7 +39,7 @@ int := 0 | 1 | 2 | 3 | ... | 2^32 - 1
 
 "max" := 2^32 - 1
 
-bucketAction :=
+action :=
     ("collect a" int "pint bucket" ("with" int "holes")?)
     | "fill the bucket to the top"
     | ("fill the bucket with" int "pints of water")
@@ -51,6 +51,7 @@ bucketAction :=
         "without overflow"?
     | "shrink my bucket"
     | "move until my bucket is empty"
+    | "evaporate" ("1 pint" | int "pints")
 
 invocation :=
     "i wish to speak with god"
@@ -94,4 +95,15 @@ Emptying into the pond without overflow is an invalid instruction.
 
 ## Example programs
 
-Examples can be found in the [`examples` directory](./examples/)
+Examples can be found in the [`examples` directory](./examples/).
+
+To run:
+- clone the repository (`git clone https://github.com/pufferfish101007/leaky-buckets.git`)
+- `cd leaky-buckets` 
+- `./interpreter.py examples/filename.bucket`.
+
+The current examples are:
+- `add` - takes two positive integers and prints their sum
+- `subtract` - takes two positive integers and prints their difference (or `0` if the difference would be negative)
+- `mul10` - multiplies the input integer by 10
+- `echo_char` - repeats a single character from stdin to stdout
