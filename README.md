@@ -50,7 +50,6 @@ action :=
         ("here" | ("onto the square" facing))
         "without overflow"?
     | "shrink my bucket"
-    | "move until my bucket is empty"
     | "evaporate" ("1 pint" | int "pints")
 
 invocation :=
