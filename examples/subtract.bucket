@@ -1,29 +1,42 @@
 -- takes two integers and returns the difference between them
 
-the bucket depot is in front of me
-the tap is to my left
-the pond is to my right
-
 collect a max pint bucket
 let god fill the bucket as he wishes -- first integer
+place the bucket down to my right
+turn right
+pick up the bucket in front of me
+move 1 step
+place the bucket down in front of me
 turn around
-move 1 steps
-place the bucket down to my left
-turn around
-move 1 steps
+move 1 step
+turn right
 
 collect a max pint bucket
 let god fill the bucket as he wishes -- second integer
 shrink my bucket
+place the bucket down to my left
+turn left
+pick up the bucket in front of me
+move 1 step
 i wish to scream into the void
 empty the bucket onto the square to my right
-
+place the bucket down to my left
 turn around
-move 1 steps
+pick up the bucket to my right
+
+move 2 steps
+place the bucket down to my right
+pick up the bucket in front of me
+empty the bucket onto the square to my right without overflow
 place the bucket down in front of me
+turn right
+pick up the bucket in front of me
+place the bucket down to my right
 pick up the bucket to my left
-empty the bucket onto the square in front of me without overflow
-
-turn around
-move 1 steps
+place the bucket down in front of me
+pick up the bucket to my right
+place the bucket down to my left
+turn right
+pick up the bucket to my left
+move 2 steps
 empty the bucket onto the square to my right

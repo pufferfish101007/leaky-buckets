@@ -1,26 +1,31 @@
--- adds two integers, and prints the output
+-- multiplies an integer by 10, and prints the output
 
-the bucket depot is in front of me
-the tap is to my left
-the pond is to my right
 
 collect a max pint bucket
 let god fill the bucket as he wishes
-turn around
-move 1 steps
+place the bucket down to my right
+turn right
+pick up the bucket in front of me
+move 1 step
 place the bucket down in front of me
 turn around
-move 1 steps
+move 1 step
+turn right
 
 collect a max pint bucket
 let god fill the bucket as he wishes
-turn around
-move 1 steps
+place the bucket down to my right
+turn right
+pick up the bucket in front of me
+move 1 step
 empty the bucket onto the square in front of me
 
-place the bucket down to my left
+place the bucket down to my right
 
+turn right
+pick up the bucket to my left
+place the bucket down to my right
+turn right
 pick up the bucket in front of me
-turn around
-move 1 steps
+move 2 steps
 empty the bucket on to the square to my right

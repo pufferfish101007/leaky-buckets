@@ -1,0 +1,81 @@
+-- multiplies two positive integers using a loop
+
+collect a max pint bucket
+place the bucket down to my right
+turn around
+pick up the bucket to my left
+move 1 step
+place the bucket down to my left -- result bucket at position (1, -1)
+turn around
+move 1 step
+
+collect a max pint bucket
+let god fill the bucket as he wishes
+shrink my bucket
+place the bucket down to my right
+turn right
+pick up the bucket in front of me
+move 1 step
+empty the bucket onto the square to my right
+move 1 step
+place the bucket down to my left -- n bucket at (2,1)
+turn around
+move 2 steps
+turn right
+
+collect a 45 pint bucket with 20 holes
+place the bucket down to my right
+turn right
+pick up the bucket in front of me
+move 1 step
+place the bucket down in front of me
+turn left
+pick up the bucket to my right
+fill the bucket to the top
+place the bucket down to my right
+evaporate 1 pint
+turn right
+pick up the bucket in front of me
+move 1 step
+place the bucket down in front of me
+-- loop counter is at (3, 0)
+-- we measure the loop counter leaking on to (2, 0)
+
+
+turn around
+
+put wellies on
+    evaporate 1 pints
+    pick up the bucket to my right
+    move 1 step
+    place the bucket down in front of me
+    turn right
+    pick up the bucket to my left
+    fill the bucket to the top
+    place the bucket down to my left
+    turn around
+    pick up the bucket to my right
+    empty the bucket onto the square in front of me
+    place the bucket down to my left
+    turn left
+    turn all the way around
+    turn all the way around
+    turn all the way around
+    turn all the way around
+    turn all the way around
+    turn all the way around
+    turn all the way around
+    turn all the way around
+    turn all the way around
+    turn all the way around
+    pick up the bucket in front of me
+    move 1 step
+    place the bucket down to my left
+    i wish to have my wellies returned
+    turn around
+take wellies off
+
+move 1 step
+pick up the bucket to my left
+move 2 steps
+empty the bucket onto the square to my right
