@@ -309,6 +309,7 @@ class Program:
                     if self.wellies_count == 0:
                         self.error("fell over with no wellies on")
                     # print("fell over; looping")
+                    self.wellies_count -= 1
                     loop_start = self.wellies_stack.pop()
                     self.pos = loop_start[1]
                     self.direction = loop_start[2]
