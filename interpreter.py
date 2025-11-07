@@ -2,10 +2,11 @@
 
 # The leaky bucket interpreter
 
-from sys import argv
+import argparse
 import re
 from dataclasses import dataclass
 from typing import Never, Literal
+from collections.abc import Generator, Callable
 
 # the following definition of getch (get character) is from
 # https://code.activestate.com/recipes/134892/
@@ -15,14 +16,16 @@ class _Getch:
     """Gets a single character from standard input.  Does not echo to the
     screen."""
 
+    impl: Callable[[], str]
+
     def __init__(self):
         try:
             self.impl = _GetchWindows()
         except ImportError:
             self.impl = _GetchUnix()
 
-    def __call__(self):  # type: ignore
-        return self.impl()  # type: ignore
+    def __call__(self) -> str:
+        return self.impl()
 
 
 class _GetchUnix:
@@ -52,16 +55,16 @@ class _GetchWindows:
         return msvcrt.getch()  # type: ignore
 
 
-_getch = _Getch()
+_getch: _Getch = _Getch()
 
 
-def getch():  # type: ignore
-    ch = _getch()  # type: ignore
+def getch() -> str:
+    ch: str = _getch()
     print(ch, end="")  # type: ignore
     return ch  # type: ignore
 
 
-def error(error: str, line_num: int | None = None, type: str = "") -> Never:
+def _error(error: str, line_num: int | None = None, type: str = "") -> Never:
     if line_num is None:
         stacktrace = ""
     else:
@@ -71,7 +74,7 @@ def error(error: str, line_num: int | None = None, type: str = "") -> Never:
 
 
 def unreachable(line_num: int | None = None) -> Never:
-    error("unreachable", line_num)
+    _error("unreachable", line_num)
 
 
 facing = "(in front of me|to my left|behind me|to my right)"
@@ -148,6 +151,11 @@ class Program:
     wellies_count: int
     wellies_stack: list[tuple[int, Pos, Direction]]
     time: int
+    lines: list[str] | None
+    line_counter: int
+
+    def error(self, error: str, line_num: int | None = None, type: str = "") -> Never:
+        _error(error, line_num, type)
 
     def __init__(self):
         self.buckets = dict()
@@ -166,6 +174,59 @@ class Program:
         self.wellies_count = 0
         self.wellies_stack = []
         self.time = 0
+        self.line_counter = 0
+
+    def output(self, output: str | int | float):
+        print(output)
+
+    def input_char(self) -> int:
+        return ord(getch())
+
+    def input_int(self) -> int:
+        return int(input())
+
+    def parse_lines(self, lines: list[str]) -> None:
+        self.lines = [
+            re.sub(r"\s+", " ", re.sub("--.+$", "", line.strip().lower()))
+            for line in lines
+        ]
+
+    def run_iter(self) -> Generator[None, None, None]:
+        lines = self.lines
+        if lines is None:
+            self.error("self.lines was not initialised before running", type="Internal")
+        self.line_counter = 0
+        branch_countdown = 0
+        while self.line_counter < len(lines):
+            if lines[self.line_counter] != "":
+                if branch_countdown > 0:
+                    if lines[self.line_counter] == "take wellies off":
+                        branch_countdown -= 1
+                    self.line_counter += 1
+                    continue
+                next_line = self.run_line(
+                    lines[self.line_counter], self.line_counter + 1
+                )
+                yield
+                if isinstance(next_line, Branch):
+                    branch_countdown = next_line.n
+                    self.line_counter += 1
+                elif next_line is not None:
+                    self.line_counter = next_line
+                else:
+                    self.line_counter += 1
+            else:
+                self.line_counter += 1
+        if branch_countdown > 0:
+            self.error("terminated without finding correct branch to take off wellies")
+
+    def run(self) -> None:
+        runner = self.run_iter()
+        try:
+            while True:
+                next(runner)
+        except StopIteration:
+            pass
 
     def leak_water_onto(self, pos: Pos, water: int) -> None:
         if pos in self.water:
@@ -203,7 +264,9 @@ class Program:
             self.current_bucket.water = max(
                 0, self.current_bucket.water - self.current_bucket.holes
             )
-            self.leak_water_onto(self.pos, min(self.current_bucket.holes, self.current_bucket.water))
+            self.leak_water_onto(
+                self.pos, min(self.current_bucket.holes, self.current_bucket.water)
+            )
         next_line = self.eval_line(line, line_num)
         if not self.mode_changed:
             self.mode = "num"
@@ -222,12 +285,12 @@ class Program:
                 add_pos(self.pos, direction_to_relative_pos(self.direction))
                 != self.depot_pos
             ):
-                error(
+                self.error(
                     "must be facing bucket depot in order to collect a bucket",
                     type="Runtime",
                 )
             if self.current_bucket is not None:
-                error(
+                self.error(
                     "cannot collect a bucket; already holding one", line_num, "Runtime"
                 )
             if match[1] == "max":
@@ -238,13 +301,13 @@ class Program:
             return
         if match := re.match(r"turn (left|right|around|all the way around)", line):
             if self.current_bucket is not None:
-                error("cannot turn around while holding a bucket", line_num, "Runtime")
+                self.error("cannot turn around while holding a bucket", line_num, "Runtime")
             # print(self.pos in self.water and self.water[self.pos])
             if self.pos in self.water and self.water[self.pos] >= 100:
                 n = int(self.water[self.pos] // 100)
                 if self.mode == "wellies_loop":
                     if self.wellies_count == 0:
-                        error("fell over with no wellies on")
+                        self.error("fell over with no wellies on")
                     # print("fell over; looping")
                     loop_start = self.wellies_stack.pop()
                     self.pos = loop_start[1]
@@ -252,7 +315,11 @@ class Program:
                     return loop_start[0]
                 else:
                     if n > self.wellies_count:
-                        error("fell over and didn't have enough wellies on", line_num, "Runtime")
+                        self.error(
+                            "fell over and didn't have enough wellies on",
+                            line_num,
+                            "Runtime",
+                        )
                     # print(f"fell over; branching {n}")
                     return Branch(n)
             match match[1]:
@@ -265,7 +332,7 @@ class Program:
                 case "all the way around":
                     rel_dir = "N"
                 case _:
-                    error("unreachable", line_num)
+                    self.error("unreachable", line_num)
             self.direction = relative_direction_to_absolute(self.direction, rel_dir)
             return
         if match := re.match(r"fill the bucket to the top", line):
@@ -273,28 +340,28 @@ class Program:
                 add_pos(self.pos, direction_to_relative_pos(self.direction))
                 != self.tap_pos
             ):
-                error(
+                self.error(
                     "must be facing the tap in order to fill a bucket",
                     line_num,
                     "Runtime",
                 )
             if self.current_bucket is None:
-                error(
+                self.error(
                     "must be holding a bucket in order to fill it", line_num, "Runtime"
                 )
             self.current_bucket.water = self.current_bucket.capacity
             return
         if match := re.match(r"let god fill the bucket as he wishes", line):
             if self.current_bucket is None:
-                error(
+                self.error(
                     "must be holding a bucket in order to fill it", line_num, "Runtime"
                 )
             if self.mode == "ascii_in":
-                new_water = 100 * ord(getch())  # type: ignore
+                new_water = 100 * self.input_char()
             else:
-                new_water = 100 * int(input())
+                new_water = 100 * self.input_int()
             if self.current_bucket.water + new_water > self.current_bucket.capacity:
-                error("exceeded capacity of bucket when filling", line_num, "Runtime")
+                self.error("exceeded capacity of bucket when filling", line_num, "Runtime")
             self.current_bucket.water += new_water
             return
         if match := re.match(r"fill the bucket with (\d+) pints of water", line):
@@ -302,13 +369,13 @@ class Program:
                 add_pos(self.pos, direction_to_relative_pos(self.direction))
                 != self.tap_pos
             ):
-                error(
+                self.error(
                     "must be facing the tap in order to fill a bucket",
                     line_num,
                     "Runtime",
                 )
             if self.current_bucket is None:
-                error(
+                self.error(
                     "must be holding a bucket in order to fill it", line_num, "Runtime"
                 )
             if match[1] == "max":
@@ -316,12 +383,12 @@ class Program:
             else:
                 water = 100 * int(match[1])
             if self.current_bucket.water + water > self.current_bucket.capacity:
-                error("exceeded capacity of bucket when filling", line_num, "Runtime")
+                self.error("exceeded capacity of bucket when filling", line_num, "Runtime")
             self.current_bucket.water += water
             return
         if match := re.match(rf"place the bucket down {facing}", line):
             if self.current_bucket is None:
-                error(
+                self.error(
                     "must be holding a bucket in order to put it down",
                     line_num,
                     "Runtime",
@@ -335,7 +402,7 @@ class Program:
                 ),
             )
             if self.pos_is_occupied(bucket_pos):
-                error(
+                self.error(
                     "cannot place a bucket in an occupied position", line_num, "Runtime"
                 )
             self.buckets[bucket_pos] = self.current_bucket
@@ -343,7 +410,7 @@ class Program:
             return
         if match := re.match(rf"pick up the bucket {facing}", line):
             if self.current_bucket is not None:
-                error(
+                self.error(
                     "must not be holding a bucket in order to pick one up",
                     line_num,
                     "Runtime",
@@ -357,7 +424,7 @@ class Program:
                 ),
             )
             if bucket_pos not in self.buckets:
-                error(
+                self.error(
                     "cannot pick up a bucket from an unoccupied position",
                     line_num,
                     "Runtime",
@@ -369,7 +436,7 @@ class Program:
             rf"empty the bucket on ?to the square {facing}( without overflow)?", line
         ):
             if self.current_bucket is None:
-                error(
+                self.error(
                     "must be holding a bucket in order to empty it", line_num, "Runtime"
                 )
             empty_pos = add_pos(
@@ -408,7 +475,7 @@ class Program:
                     self.current_bucket.water = 0
             elif empty_pos == self.pond_pos:
                 if match.lastindex is not None and match.lastindex > 1:
-                    error(
+                    self.error(
                         "it is not a valid instruction to empty into the pond without overflow",
                         line_num,
                         "Runtime",
@@ -416,21 +483,21 @@ class Program:
                 match self.mode:
                     case "num":
                         if self.current_bucket.water % 100 == 0:
-                            print(int(self.current_bucket.water // 100))
+                            self.output(int(self.current_bucket.water // 100))
                         else:
-                            print(self.current_bucket.water * 0.01)
+                            self.output(self.current_bucket.water * 0.01)
                     case "ascii":
                         if self.current_bucket.water % 100 == 0:
                             if self.current_bucket.water // 100 < 128:
-                                print(chr(self.current_bucket.water // 100))
+                                self.output(chr(self.current_bucket.water // 100))
                             else:
-                                error(
+                                self.error(
                                     "couldn't print as ascii bucket for which water level was > 127",
                                     line_num,
                                     "Runtime",
                                 )
                         else:
-                            error(
+                            self.error(
                                 "couldn't print as ascii bucket for which water level was not an integer",
                                 line_num,
                                 "Runtime",
@@ -442,7 +509,7 @@ class Program:
                 self.current_bucket.water = 0
             else:
                 if match.lastindex is not None and match.lastindex > 1:
-                    error(
+                    self.error(
                         "it is not a valid instruction to empty onto the floor without overflow",
                         line_num,
                         "Runtime",
@@ -455,7 +522,7 @@ class Program:
             return
         if match := re.match(rf"empty the bucket here", line):
             if self.current_bucket is None:
-                error(
+                self.error(
                     "must be holding a bucket in order to empty it", line_num, "Runtime"
                 )
             if self.pos in self.water:
@@ -471,7 +538,7 @@ class Program:
                 for s in range(1, length + 1)
             ]
             if any(map(self.pos_is_occupied, route)):
-                error("tripped over an occupied position :(", line_num, "Runtime")
+                self.error("tripped over an occupied position :(", line_num, "Runtime")
             self.pos = add_pos(
                 self.pos,
                 mul_pos(length, direction_to_relative_pos(self.direction)),
@@ -479,7 +546,7 @@ class Program:
             return
         if match := re.match(rf"shrink my bucket", line):
             if self.current_bucket is None:
-                error(
+                self.error(
                     "must be holding a bucket in order to shrink it",
                     line_num,
                     "Runtime",
@@ -508,7 +575,7 @@ class Program:
             return
         if match := re.match(rf"take wellies off", line):
             if self.wellies_count == 0:
-                error(
+                self.error(
                     "can't take off wellies when you have no wellies on",
                     line_num,
                     "Runtime",
@@ -518,39 +585,30 @@ class Program:
             return
         if match := re.match(r"evaporate ((1) pint|(\d+) pints)", line):
             if self.pos in self.water:
-                self.water[self.pos] = max(0, self.water[self.pos] - 100 * int(match[2] or match[3]))
+                self.water[self.pos] = max(
+                    0, self.water[self.pos] - 100 * int(match[2] or match[3])
+                )
             return
-        error("unknown instruction", line_num)
+        self.error("unknown instruction", line_num)
 
+
+parser = argparse.ArgumentParser(
+    prog="Leaky Bucket Interpreter",
+    description="Interprets leaky bucket programs",
+)
+parser.add_argument("filename")
+parser.add_argument(
+    "-i", "--interactive", action="store_true", help="run in interactive GUI mode"
+)
 
 if __name__ == "__main__":
     program = Program()
-    if len(argv) > 1:
-        filename = argv[1]
-        with open(filename, encoding="utf-8") as f:
-            lines = [
-                re.sub("--.+$", "", line.strip().lower()) for line in f.readlines()
-            ]
-            i = 0
-            branch_countdown = 0
-            while i < len(lines):
-                if lines[i] != "":
-                    if branch_countdown > 0:
-                        if lines[i] == "take wellies off":
-                            branch_countdown -= 1
-                        i += 1
-                        continue
-                    next_line = program.run_line(re.sub(r"\s+", " ", lines[i]), i + 1)
-                    if isinstance(next_line, Branch):
-                        branch_countdown = next_line.n
-                        i += 1
-                    elif next_line is not None:
-                        i = next_line
-                    else:
-                        i += 1
-                else:
-                    i += 1
-            if branch_countdown > 0:
-                error("terminated without finding correct branch to take off wellies")
+    args = parser.parse_args()
+    if args.interactive:
+        from gui import GUI
+
+        gui = GUI(args.filename)
     else:
-        error("expected there to be an input of a file name")
+        with open(args.filename, encoding="utf-8") as f:
+            program.parse_lines(f.readlines())
+            program.run()
