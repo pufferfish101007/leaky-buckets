@@ -15,7 +15,7 @@ class ProgramStatus(StrEnum):
     Error = "Error"
 
 
-TILE_SIZE = 75
+TILE_SIZE = 66
 
 
 @dataclass
@@ -35,8 +35,6 @@ class Tile:
     text: int
 
     program: Program
-
-    is_static: bool = False
 
     info: str = ""
 
@@ -74,12 +72,7 @@ class Tile:
 
         self.canvas.tag_raise(self.text)
 
-        self.is_static = self.world_coords() in [
-            self.program.depot_pos,
-            self.program.tap_pos,
-            self.program.pond_pos,
-        ]
-        self.update(force=True)
+        self.update()
 
         return self
 
@@ -98,9 +91,7 @@ class Tile:
             self.text, x * TILE_SIZE + TILE_SIZE // 2, y * TILE_SIZE + TILE_SIZE // 2
         )
 
-    def update(self, force: bool = False) -> None:
-        if (not force) and self.is_static:
-            return
+    def update(self) -> None:
 
         self.update_canvas_pos()
 
@@ -153,7 +144,7 @@ class Tile:
                 self.info = f"Ground wet with {self.program.water[self.world_coords()] / 100} pints @ {self.world_coords()}"
                 self.canvas.itemconfigure(
                     self.text,
-                    text=f"{self.program.water[self.world_coords()] / 100} pints",
+                    text=f"{self.program.water[self.world_coords()] / 100}",
                 )
 
         if self.world_coords() == self.program.pos:
@@ -168,7 +159,9 @@ class Tile:
         return (self.world_x, self.world_y)
 
 
-CANVAS_SIZE = 600
+CANVAS_SIZE = 594
+
+TILE_NUM = ceil(CANVAS_SIZE / TILE_SIZE)
 
 
 class GUI:
@@ -193,6 +186,12 @@ class GUI:
     step_wait: int = 1000
     tiles: list[Tile]
     canvas_offset: CanvasOffset = CanvasOffset()
+    created_tiles: list[int] = [
+        0,
+        0,
+        0,
+        0,
+    ]  # furthest up, down, left, right
 
     def __init__(self, filename: str) -> None:
         self.filename = filename
@@ -238,6 +237,8 @@ class GUI:
         self.canvas.grid(column=0, row=0)
         self.canvas.bind("<Leave>", lambda _: self.show_hover_text(""))
 
+        self.direction_line = self.canvas.create_line(0, 0, 0, 0, width=4, fill="red")
+
         button_frame = Frame(center_frame, padding=10)
         button_frame.grid(column=1, row=0, sticky="N")
 
@@ -252,27 +253,33 @@ class GUI:
         self.step_time_label = Label(button_frame, text="")
         self.step_time_label.grid(column=0, row=3, pady=(20, 5))
 
-        self.step_time_button = Button(button_frame, text="Change step time", command=self.change_step_time)
+        self.step_time_button = Button(
+            button_frame, text="Change step time", command=self.change_step_time
+        )
         self.step_time_button.grid(column=0, row=4)
 
         self.update_status_label()
 
-        Label(button_frame, text="Output:").grid(column=0, row=5, sticky="W", pady=(20, 5))
+        Label(button_frame, text="Output:").grid(
+            column=0, row=5, sticky="W", pady=(20, 5)
+        )
         self.output_box = Label(button_frame, text="")
         self.output_box.grid(column=0, row=6, sticky="W")
 
-        tile_num = ceil(CANVAS_SIZE / TILE_SIZE)
-        
-        self.canvas_offset.offset = ((tile_num - 1) // 2, (tile_num - 1) // 2)
+        self.canvas_offset.offset = ((TILE_NUM - 1) // 2, (TILE_NUM - 1) // 2)
 
-        for i, j in product(
-            range(tile_num), range(tile_num)
-        ):
+        for i, j in product(range(TILE_NUM), range(TILE_NUM)):
             self.tiles.append(
                 Tile(
                     self.canvas, self.program, self.show_hover_text, self.canvas_offset
                 ).set_world_coords(i - self.canvas_offset[0], j - self.canvas_offset[1])
             )
+        self.created_tiles = [
+            -self.canvas_offset[0],
+            TILE_NUM - self.canvas_offset[0],
+            -self.canvas_offset[1],
+            TILE_NUM - self.canvas_offset[1],
+        ]
 
         self.window.mainloop()
 
@@ -281,8 +288,97 @@ class GUI:
 
     def update(self):
         self.update_status_label()
+
+        self.canvas_offset.offset = (
+            (TILE_NUM - 1) // 2 - self.program.pos[0],
+            (TILE_NUM - 1) // 2 - self.program.pos[1],
+        )
+
+        if -self.canvas_offset[0] < self.created_tiles[2]:
+            for i in range(self.created_tiles[0], self.created_tiles[1]):
+                self.tiles.append(
+                    Tile(
+                        self.canvas,
+                        self.program,
+                        self.show_hover_text,
+                        self.canvas_offset,
+                    ).set_world_coords(-self.canvas_offset[0], i)
+                )
+            self.created_tiles[2] = -self.canvas_offset[0]
+        if TILE_NUM - self.canvas_offset[0] >= self.created_tiles[3]:
+            for i in range(self.created_tiles[0], self.created_tiles[1]):
+                self.tiles.append(
+                    Tile(
+                        self.canvas,
+                        self.program,
+                        self.show_hover_text,
+                        self.canvas_offset,
+                    ).set_world_coords(TILE_NUM - self.canvas_offset[0], i)
+                )
+                self.created_tiles[3] = TILE_NUM - self.canvas_offset[0] + 1
+        if -self.canvas_offset[1] < self.created_tiles[0]:
+            for i in range(self.created_tiles[2], self.created_tiles[3]):
+                self.tiles.append(
+                    Tile(
+                        self.canvas,
+                        self.program,
+                        self.show_hover_text,
+                        self.canvas_offset,
+                    ).set_world_coords(i, -self.canvas_offset[1])
+                )
+                self.created_tiles[0] = -self.canvas_offset[1]
+        if TILE_NUM - self.canvas_offset[1] >= self.created_tiles[1]:
+            for i in range(self.created_tiles[2], self.created_tiles[3]):
+                self.tiles.append(
+                    Tile(
+                        self.canvas,
+                        self.program,
+                        self.show_hover_text,
+                        self.canvas_offset,
+                    ).set_world_coords(i, TILE_NUM - self.canvas_offset[1])
+                )
+                self.created_tiles[1] = TILE_NUM - self.canvas_offset[1] + 1
+
         for tile in self.tiles:
             tile.update()
+
+        centre = CANVAS_SIZE // 2
+        t = TILE_SIZE // 4
+        match self.program.direction:
+            case "N":
+                self.canvas.coords(
+                    self.direction_line,
+                    centre,
+                    centre + t,
+                    centre,
+                    centre + TILE_SIZE // 2,
+                )
+            case "E":
+                self.canvas.coords(
+                    self.direction_line,
+                    centre + t,
+                    centre,
+                    centre + TILE_SIZE // 2,
+                    centre,
+                )
+            case "S":
+                self.canvas.coords(
+                    self.direction_line,
+                    centre,
+                    centre - t,
+                    centre,
+                    centre - TILE_SIZE // 2,
+                )
+            case "W":
+                self.canvas.coords(
+                    self.direction_line,
+                    centre - t,
+                    centre,
+                    centre - TILE_SIZE // 2,
+                    centre,
+                )
+        self.canvas.tag_raise(self.direction_line)
+
         bucket = self.program.current_bucket
         if bucket is not None:
             if bucket.water == 0:
@@ -307,7 +403,9 @@ class GUI:
             )
 
     def change_step_time(self):
-        new_time = simpledialog.askinteger("Leaky buckets", "Step wait time (ms):", minvalue=1)
+        new_time = simpledialog.askinteger(
+            "Leaky buckets", "Step wait time (ms):", minvalue=1
+        )
         if new_time is not None:
             self.step_wait = new_time
 
@@ -317,7 +415,8 @@ class GUI:
         )
         if self.program.line_counter < len(self.program.lines):
             self.line_label["text"] = self.program.lines[self.program.line_counter]  # type: ignore
-        else: self.line_label["text"] = ""
+        else:
+            self.line_label["text"] = ""
         self.step_time_label["text"] = f"Step wait time: {self.step_wait}ms"
 
     def reset(self):
